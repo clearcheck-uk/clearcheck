@@ -141,6 +141,62 @@ async function chPSC(n: string) {
   return r.data?.items ?? []
 }
 
+// ── PEP check (UK Parliament API) ────────────────────────────────────────────
+
+interface PEPMatch {
+  name: string
+  role: string
+  party: string
+  house: string
+  from: string
+  to: string
+}
+
+async function pepLookup(name: string): Promise<PEPMatch[]> {
+  const r = await axios.get('https://members-api.parliament.uk/api/Members/Search', {
+    params: { Name: name, skip: 0, take: 5 },
+    timeout: 10000,
+  })
+  return (r.data?.items ?? []).map((item: any) => {
+    const v = item.value
+    const m = v.latestHouseMembership
+    return {
+      name: v.nameFullTitle || v.nameDisplayAs,
+      role: m?.house === 1 ? 'MP' : 'Lord',
+      party: v.latestParty?.name || 'Unknown',
+      house: m?.house === 1 ? 'House of Commons' : 'House of Lords',
+      from: m?.membershipStartDate?.slice(0, 10) || '',
+      to: m?.membershipEndDate?.slice(0, 10) || 'current',
+    }
+  })
+}
+
+// ── SIC code risk classification ─────────────────────────────────────────────
+
+const HIGH_RISK_SIC: Record<string, string> = {
+  '64110': 'Central banking', '64191': 'Banks', '64921': 'Credit granting',
+  '64992': 'Money lending', '64999': 'Other financial services',
+  '66190': 'Financial services auxiliary', '66120': 'Securities dealing',
+  '68100': 'Real estate (own property)', '68201': 'Residential lettings',
+  '68209': 'Other real estate', '68310': 'Real estate agencies', '68320': 'Real estate management',
+  '92000': 'Gambling & betting', '92110': 'Motion picture production',
+  '47990': 'Other retail (cash-intensive)', '56101': 'Restaurants', '56302': 'Public houses',
+  '45111': 'Motor vehicle sales', '45112': 'Used motor vehicle sales',
+  '64201': 'Financial holding companies', '64205': 'Financial holding companies (UK)',
+  '82990': 'Other business support', '74909': 'Other professional activities',
+}
+
+function sicRisk(codes: string[]): string[] {
+  return codes.flatMap(c => HIGH_RISK_SIC[c] ? [`${c} — ${HIGH_RISK_SIC[c]}`] : [])
+}
+
+function companyRiskLevel(status: string, dateCreated: string, sics: string[]): 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (['dissolved', 'liquidation', 'receivership', 'administration'].includes(status)) return 'HIGH'
+  const ageMonths = dateCreated ? (Date.now() - new Date(dateCreated).getTime()) / (1000 * 60 * 60 * 24 * 30) : 999
+  if (ageMonths < 12 || sicRisk(sics).length > 0) return 'MEDIUM'
+  return 'LOW'
+}
+
 // ── FCA Register ─────────────────────────────────────────────────────────────
 
 async function fcaLookup(frn: string) {
@@ -161,31 +217,30 @@ function buildServer() {
   // Tool 1 — Full CDD report
   server.tool(
     'client_cdd',
-    'Run a full Customer Due Diligence (CDD) check on a new client as required under UK Money Laundering Regulations 2017. Screens against the FCDO UK Sanctions List, looks up the company on Companies House (status, directors, PSCs), and checks the FCA Financial Services Register. Returns a structured risk report ready for your MLRO file.',
+    'Run a full Customer Due Diligence (CDD) check on a new client as required under UK Money Laundering Regulations 2017. Screens against the FCDO UK Sanctions List, checks for Politically Exposed Persons (PEPs) via the UK Parliament register, looks up the company on Companies House (status, directors, PSCs, SIC risk flags), and provides an overall risk rating (HIGH / MEDIUM / LOW). Returns a structured report ready for your MLRO file.',
     {
       name: z.string().describe('Full name of individual or company to screen'),
       company_number: z.string().optional().describe('Companies House number if known — speeds up the lookup'),
     },
-    {
-      title: 'Full CDD Report',
-      readOnlyHint: true,
-    },
+    { title: 'Full CDD Report', readOnlyHint: true },
     async ({ name, company_number }) => {
-      const lines: string[] = [
-        `# CDD Report: ${name}`,
-        `*${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · ClearCheck UK*`,
-        '',
-      ]
+      const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      const lines: string[] = [`# CDD Report: ${name}`, `*${date} · ClearCheck UK*`, '']
 
-      // Sanctions
+      let riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW'
+      const riskFlags: string[] = []
+
+      // ── Sanctions ──
       try {
         const list = await getSanctionsList()
         const hits = list.filter(e => sanctionsMatch(name, e))
         if (hits.length) {
-          lines.push(`## 🚨 SANCTIONS: ${hits.length} MATCH(ES) FOUND`)
+          riskLevel = 'HIGH'
+          riskFlags.push(`Sanctions match (${hits.length})`)
+          lines.push(`## 🚨 SANCTIONS: ${hits.length} MATCH(ES)`)
           for (const m of hits) {
             lines.push(`- **${m.name}** | Regime: ${m.regimes.join(', ')}${m.dob ? ` | DOB: ${m.dob}` : ''}`)
-            if (m.aliases.length) lines.push(`  Aliases: ${m.aliases.join('; ')}`)
+            if (m.aliases.length) lines.push(`  Aliases: ${m.aliases.slice(0, 3).join('; ')}`)
           }
           lines.push(`> ⚠️ Do NOT proceed. Verify match independently before any action.`)
         } else {
@@ -196,20 +251,47 @@ function buildServer() {
       }
       lines.push('')
 
-      // Companies House
+      // ── PEP check ──
+      try {
+        const peps = await pepLookup(name)
+        if (peps.length) {
+          if (riskLevel !== 'HIGH') riskLevel = 'MEDIUM'
+          riskFlags.push(`PEP match (${peps.length})`)
+          lines.push(`## 🟡 PEP: ${peps.length} MATCH(ES) — Politically Exposed Person`)
+          for (const p of peps) {
+            lines.push(`- **${p.name}** | ${p.role} · ${p.party} · ${p.house}`)
+            lines.push(`  Served: ${p.from}${p.to !== 'current' ? ` to ${p.to}` : ' (current)'}`)
+          }
+          lines.push(`> Enhanced Due Diligence (EDD) required for PEPs and their associates under MLR 2017 Reg 35.`)
+        } else {
+          lines.push(`## ✅ PEP Check: No UK parliamentary PEP match found`)
+        }
+      } catch {
+        lines.push(`## ⚠️ PEP Check: Unavailable — verify manually`)
+      }
+      lines.push('')
+
+      // ── Companies House ──
       try {
         const results = company_number ? [{ company_number }] : await chSearch(name)
         if (results.length) {
           const num = results[0].company_number
           const [profile, officers, pscs] = await Promise.all([chProfile(num), chOfficers(num), chPSC(num)])
           const status: string = profile.company_status
-          const activeOfficers = (officers as any[]).filter(o => !o.resigned_on)
-          const activePSCs = (pscs as any[]).filter(p => !p.ceased_on)
-          const risky = ['dissolved', 'liquidation', 'receivership', 'administration'].includes(status)
-          lines.push(`## ${risky ? '🚨' : '✅'} Companies House: ${profile.company_name} (${num})`)
-          lines.push(`- **Status:** ${status}${risky ? ' — HIGH RISK ⚠️' : ''}`)
+          const sics: string[] = profile.sic_codes ?? []
+          const activeOfficers = (officers as any[]).filter((o: any) => !o.resigned_on)
+          const activePSCs = (pscs as any[]).filter((p: any) => !p.ceased_on)
+          const companyRisk = companyRiskLevel(status, profile.date_of_creation, sics)
+          const sicFlags = sicRisk(sics)
+          if (companyRisk === 'HIGH' && riskLevel !== 'HIGH') riskLevel = 'HIGH'
+          if (companyRisk === 'MEDIUM' && riskLevel === 'LOW') riskLevel = 'MEDIUM'
+          if (companyRisk !== 'LOW') riskFlags.push(`Company: ${status}${sicFlags.length ? `, high-risk SIC` : ''}`)
+          const statusIcon = companyRisk === 'HIGH' ? '🚨' : companyRisk === 'MEDIUM' ? '🟡' : '✅'
+          lines.push(`## ${statusIcon} Companies House: ${profile.company_name} (${num})`)
+          lines.push(`- **Status:** ${status}${companyRisk === 'HIGH' ? ' — HIGH RISK ⚠️' : ''}`)
           lines.push(`- **Incorporated:** ${profile.date_of_creation}`)
           lines.push(`- **Address:** ${[profile.registered_office_address?.address_line_1, profile.registered_office_address?.locality, profile.registered_office_address?.postal_code].filter(Boolean).join(', ')}`)
+          lines.push(`- **SIC codes:** ${sics.join(', ') || 'N/A'}${sicFlags.length ? ` ⚠️ High-risk: ${sicFlags.join('; ')}` : ''}`)
           lines.push(`- **Active officers (${activeOfficers.length}):** ${activeOfficers.map((o: any) => o.name).join(', ') || 'none'}`)
           lines.push(`- **PSCs:** ${activePSCs.map((p: any) => p.name || p.company_name).join(', ') || 'none recorded'}`)
           lines.push(`- https://find-and-update.company-information.service.gov.uk/company/${num}`)
@@ -221,13 +303,19 @@ function buildServer() {
       }
       lines.push('')
 
-      // FCA
-      lines.push(`## ℹ️ FCA Register: Use \`fca_check\` with the firm's FRN to verify authorisation status`)
+      // ── FCA note ──
+      lines.push(`## ℹ️ FCA Register: Use \`fca_check\` with the firm's FRN to verify FCA authorisation`)
       lines.push(`   Look up FRN at: https://register.fca.org.uk`)
       lines.push('')
+
+      // ── Overall risk rating ──
+      const riskEmoji = riskLevel === 'HIGH' ? '🔴' : riskLevel === 'MEDIUM' ? '🟡' : '🟢'
       lines.push(`---`)
+      lines.push(`## ${riskEmoji} Overall Risk Rating: ${riskLevel}`)
+      if (riskFlags.length) lines.push(`**Flags:** ${riskFlags.join(' · ')}`)
+      lines.push('')
       lines.push(`*Decision-support tool only. Retain in MLRO file. Your firm retains sole AML/CTF responsibility under MLR 2017.*`)
-      lines.push(`*Sources: FCDO UK Sanctions List (OGL v3) · Companies House public register (OGL v3) · FCA Financial Services Register*`)
+      lines.push(`*Sources: FCDO UK Sanctions List (OGL v3) · UK Parliament Members API · Companies House (OGL v3)*`)
 
       return { content: [{ type: 'text' as const, text: lines.join('\n') }] }
     }
@@ -280,7 +368,7 @@ function buildServer() {
           `**Status:** ${status}${risky ? ' 🚨' : ''}`,
           `**Incorporated:** ${profile.date_of_creation}`,
           `**Address:** ${[profile.registered_office_address?.address_line_1, profile.registered_office_address?.address_line_2, profile.registered_office_address?.locality, profile.registered_office_address?.postal_code].filter(Boolean).join(', ')}`,
-          `**SIC codes:** ${profile.sic_codes?.join(', ') || 'N/A'}`,
+          `**SIC codes:** ${profile.sic_codes?.join(', ') || 'N/A'}${sicRisk(profile.sic_codes ?? []).length ? ` ⚠️ High-risk: ${sicRisk(profile.sic_codes ?? []).join('; ')}` : ''}`,
           '',
           `### Active officers (${activeOfficers.length})`,
           ...activeOfficers.map((o: any) => `- ${o.name} — ${o.officer_role} (appointed ${o.appointed_on})`),
@@ -298,7 +386,39 @@ function buildServer() {
     }
   )
 
-  // Tool 4 — FCA check
+  // Tool 4 — PEP check
+  server.tool(
+    'pep_check',
+    'Screen an individual against the UK Parliament register to identify Politically Exposed Persons (PEPs) — current and former MPs and Lords. PEPs require Enhanced Due Diligence (EDD) under MLR 2017 Regulation 35. Also covers their close associates and family members where names are known.',
+    { name: z.string().describe('Full name of the individual to screen for PEP status') },
+    { title: 'PEP Screen', readOnlyHint: true },
+    async ({ name }) => {
+      try {
+        const peps = await pepLookup(name)
+        if (!peps.length) {
+          return { content: [{ type: 'text' as const, text: `## PEP Screen: ${name}\n**No match found** in UK Parliament register.\n\n*Note: This screens UK MPs and Lords only. For foreign PEPs or senior officials, additional manual checks may be required.*\n*Source: UK Parliament Members API*` }] }
+        }
+        const lines = [
+          `## 🟡 PEP Screen: ${name}`,
+          `**${peps.length} match(es) found — Enhanced Due Diligence required**`,
+          '',
+        ]
+        for (const p of peps) {
+          lines.push(`**${p.name}**`)
+          lines.push(`Role: ${p.role} | Party: ${p.party} | ${p.house}`)
+          lines.push(`Served: ${p.from}${p.to !== 'current' ? ` to ${p.to}` : ' (current member)'}`)
+          lines.push('')
+        }
+        lines.push(`> Under MLR 2017 Reg 35, PEPs and their family/close associates require EDD including senior management approval, source of wealth checks, and enhanced ongoing monitoring.`)
+        lines.push(`*Source: UK Parliament Members API*`)
+        return { content: [{ type: 'text' as const, text: lines.join('\n') }] }
+      } catch (e: any) {
+        return { content: [{ type: 'text' as const, text: `PEP check failed: ${e.message}` }], isError: true }
+      }
+    }
+  )
+
+  // Tool 5 — FCA check
   server.tool(
     'fca_check',
     'Verify a firm on the FCA Financial Services Register using their FRN (Firm Reference Number). Returns authorisation status, business type, organisation name, and Companies House number. Use when a client or counterparty claims to be FCA-regulated. Find FRNs at https://register.fca.org.uk',

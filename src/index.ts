@@ -462,6 +462,10 @@ function buildServer() {
 
 const app = express()
 app.use(express.json())
+app.use('/public', express.static('public'))
+
+app.get('/favicon.ico', (_req, res) => res.redirect('/public/favicon.png'))
+app.get('/', (_req, res) => res.send('<html><head><link rel="icon" href="/public/favicon.png"><title>ClearCheck</title></head><body><h1>ClearCheck</h1><p>UK AML compliance intelligence for accountants.</p></body></html>'))
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'clearcheck-mcp', version: '1.0.0' })

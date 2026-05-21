@@ -60,6 +60,10 @@ Quick sanctions check on Vladimir Petrov
 
 £99/month — unlimited checks, all tools included
 
+## Terms of Service
+
+By using ClearCheck you agree to: (1) use the service only for lawful compliance purposes; (2) not attempt to reverse-engineer or abuse the API; (3) accept that results are provided for decision-support only and carry no legal warranty; (4) maintain your own AML/CTF compliance obligations under applicable law. Subscriptions are billed monthly and may be cancelled at any time. ClearCheck reserves the right to suspend access for misuse. Governed by the laws of England and Wales.
+
 ## Legal
 
 ClearCheck is a decision-support tool. It is not legal or compliance advice. Your firm retains sole responsibility for AML/CTF compliance obligations under the Money Laundering Regulations 2017. Always apply professional judgment to results.

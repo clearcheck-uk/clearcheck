@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearCheck — UK AML Compliance for Claude</title>
+  <link rel="icon" href="https://raw.githubusercontent.com/clearcheck-uk/clearcheck/main/public/favicon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1624; color: #fff; }
+    nav { padding: 20px 40px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1e2d4a; }
+    nav img { width: 36px; height: 36px; border-radius: 8px; }
+    nav span { font-size: 20px; font-weight: 700; color: #fff; }
+    .hero { text-align: center; padding: 80px 20px 60px; }
+    .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
+    .hero h1 span { color: #22c55e; }
+    .hero p { font-size: 20px; color: #94a3b8; max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
+    .cta { display: inline-block; background: #22c55e; color: #000; padding: 16px 36px; border-radius: 8px; font-size: 18px; font-weight: 700; text-decoration: none; }
+    .cta:hover { background: #16a34a; }
+    .beta { display: inline-block; margin-left: 16px; color: #94a3b8; font-size: 16px; }
+    .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; max-width: 1000px; margin: 60px auto; padding: 0 20px; }
+    .tool { background: #1a2744; border: 1px solid #1e3a5f; border-radius: 12px; padding: 24px; }
+    .tool h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+    .tool p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+    .tool .icon { font-size: 28px; margin-bottom: 12px; }
+    .setup { max-width: 700px; margin: 0 auto 80px; padding: 0 20px; }
+    .setup h2 { font-size: 32px; font-weight: 700; margin-bottom: 30px; text-align: center; }
+    .step { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; }
+    .step-num { background: #22c55e; color: #000; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+    .step-text h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .step-text p { font-size: 14px; color: #94a3b8; }
+    code { background: #1a2744; border: 1px solid #1e3a5f; padding: 12px 16px; border-radius: 8px; display: block; font-size: 13px; color: #22c55e; margin-top: 8px; font-family: monospace; }
+    .price { text-align: center; padding: 60px 20px; background: #1a2744; border-top: 1px solid #1e3a5f; border-bottom: 1px solid #1e3a5f; }
+    .price h2 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .price .amount { font-size: 56px; font-weight: 800; color: #22c55e; }
+    .price .period { font-size: 20px; color: #94a3b8; }
+    .price p { color: #94a3b8; margin: 16px 0 30px; font-size: 16px; }
+    .legal { text-align: center; padding: 40px 20px; color: #475569; font-size: 13px; max-width: 700px; margin: 0 auto; line-height: 1.6; }
+    .badge { display: inline-block; background: #1e3a5f; color: #94a3b8; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <img src="https://raw.githubusercontent.com/clearcheck-uk/clearcheck/main/public/favicon.png" alt="ClearCheck">
+  <span>ClearCheck</span>
+</nav>
+
+<div class="hero">
+  <div class="badge">UK AML Compliance · Claude Plugin</div>
+  <h1>CDD checks inside<br><span>Claude</span>, instantly.</h1>
+  <p>Screen clients against UK sanctions, check for PEPs, look up Companies House — all in one structured report ready for your MLRO file.</p>
+  <a href="mailto:traveltaxdesk@gmail.com?subject=ClearCheck Access Request" class="cta">Get Access</a>
+  <span class="beta">Currently in beta · £99/month</span>
+</div>
+
+<div class="tools">
+  <div class="tool">
+    <div class="icon">🛡️</div>
+    <h3>Full CDD Report</h3>
+    <p>Sanctions + PEP + Companies House + risk rating in one structured report. Ready for your MLRO file.</p>
+  </div>
+  <div class="tool">
+    <div class="icon">🚨</div>
+    <h3>Sanctions Screen</h3>
+    <p>Screen against the FCDO UK Sanctions List — 6,177 entries across all UK regimes, updated daily.</p>
+  </div>
+  <div class="tool">
+    <div class="icon">🏛️</div>
+    <h3>PEP Check</h3>
+    <p>Identify Politically Exposed Persons via the UK Parliament register. Flags EDD requirements under MLR 2017.</p>
+  </div>
+  <div class="tool">
+    <div class="icon">🏢</div>
+    <h3>Companies House</h3>
+    <p>Company status, directors, PSCs, SIC risk flags. Instantly flags dissolved, liquidation, administration.</p>
+  </div>
+  <div class="tool">
+    <div class="icon">📋</div>
+    <h3>FCA Register</h3>
+    <p>Verify FCA authorisation status by FRN. Confirms if a firm genuinely holds the permissions they claim.</p>
+  </div>
+</div>
+
+<div class="setup">
+  <h2>How to connect</h2>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-text">
+      <h4>Get your licence key</h4>
+      <p>Email us at traveltaxdesk@gmail.com — we'll send your key within 24 hours.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-text">
+      <h4>Add to Claude Desktop config</h4>
+      <p>Add ClearCheck to your claude_desktop_config.json:</p>
+      <code>{"mcpServers": {"clearcheck": {"command": "npx", "args": ["-y", "mcp-remote", "https://clearcheck.onrender.com/mcp", "--header", "Authorization:Bearer YOUR_KEY"]}}}</code>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-text">
+      <h4>Start checking</h4>
+      <p>Restart Claude and ask: "Run a full CDD check on [client name]"</p>
+    </div>
+  </div>
+</div>
+
+<div class="price">
+  <h2>Simple pricing</h2>
+  <div><span class="amount">£99</span><span class="period">/month</span></div>
+  <p>Unlimited checks · All 5 tools · Cancel anytime</p>
+  <a href="mailto:traveltaxdesk@gmail.com?subject=ClearCheck Access Request" class="cta">Get Access →</a>
+</div>
+
+<div class="legal">
+  <p>ClearCheck is a decision-support tool. It is not legal or compliance advice. Your firm retains sole responsibility for AML/CTF compliance under the Money Laundering Regulations 2017.</p>
+  <br>
+  <p>Data sources: FCDO UK Sanctions List (OGL v3) · Companies House (OGL v3) · UK Parliament Members API · FCA Financial Services Register</p>
+  <br>
+  <p><a href="https://github.com/clearcheck-uk/clearcheck/blob/main/PRIVACY.md" style="color:#475569">Privacy Policy</a> · <a href="https://github.com/clearcheck-uk/clearcheck/blob/main/README.md" style="color:#475569">Documentation</a> · traveltaxdesk@gmail.com</p>
+</div>
+
+</body>
+</html>
